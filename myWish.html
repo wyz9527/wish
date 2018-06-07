@@ -1,0 +1,238 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>我要许愿-云许愿墙-疏桐科技</title>
+    <link rel="stylesheet" href="css/index.css" />
+    <link rel="stylesheet" href="css/layui/css/layui.css" />
+
+    <script type="text/javascript" src='js/jquery-1.7.2.min.js'></script>
+    <script type="text/javascript" src='js/vue.js'></script>
+</head>
+<body>
+
+<div  id="WebExtensionWallet"  class="layui-row" style="display: none">
+
+    <blockquote class="layui-elem-quote">
+        需要使用Chome浏览器，安装WebExtensionWallet插件 <a href="https://github.com/ChengOrangeJu/WebExtensionWallet" target="_blank">【去安装】</a>；安装完成后请刷新页面
+    </blockquote>
+
+</div>
+
+<div id='top'>
+    <div class="layui-tab layui-tab-brief" lay-filter="docDemoTabBrief">
+        <ul class="layui-tab-title layui-bg-gray">
+            <li><a href="index.html">许愿墙</a></li>
+            <li><a href="pushWish.html" >我要许愿</a></li>
+            <li class="layui-this" ><b>我的许愿</b></li>
+            <li><a href="javascript:;" onclick="showContact()" >联系我们</a></li>
+        </ul>
+    </div>
+</div>
+
+<div id='main'>
+    <hr class="layui-bg-black">
+    <div class="layui-container">
+        <form class="layui-form layui-form-pane" id="accForm" onsubmit="return false" >
+
+            <div class="layui-inline">
+                <label class="layui-form-label">账号</label>
+                <div class="layui-input-inline" style="width: 350px;">
+                    <input type="text" id="account" v-model="account" required  lay-verify="required" placeholder="请输入你的账号地址" autocomplete="off" class="layui-input">
+                </div>
+
+                <div class="layui-input-inline" style="width: 100px;">
+                    <button class="layui-btn" v-on:click="getWishs" lay-submit lay-filter="formDemo">获取</button>
+                </div>
+            </div>
+        </form>
+
+        <table class="layui-table" id="wishList">
+            <colgroup>
+                <col width="150">
+                <col width="200">
+                <col>
+            </colgroup>
+            <thead>
+                <tr>
+                    <th>昵称</th>
+                    <th>许愿时间</th>
+                    <th>心愿</th>
+                </tr>
+            </thead>
+            <tbody v-if="items.length">
+            <tr v-for="(item, index) in items" >
+                <td>{{item.nick}}</td>
+                <td>{{item.content}}</td>
+                <td>{{item.pushTime}}</td>
+            </tr>
+            </tbody>
+            <tbody v-else>
+            <td colspan="3">
+                您还没有许过心愿，<a href="pushWish.html">去许愿</a>
+            </td>
+            </tbody>
+        </table>
+    </div>
+
+
+</div>
+
+<div class="layui-row" style="position: fixed;bottom: 0;z-index: 999999;left:0px; width: 100%;">
+    <div class="layui-col-md12 layui-bg-gray" style="text-align: center; vertical-align:middle;line-height: 50px; height: 50px;">
+        © 2018 本网站由<a href="https://nebulas.io/cn/" style="color: #1E9FFF;" target="_blank">星云链</a>提供区块链服务.
+    </div>
+</div>
+
+<script src=js/layer/layer.js></script>
+<script src=js/nebulas.js></script>
+<script src=js/1-localSave.js></script>
+<script src=js/home.v1.js></script>
+<script src=js/i18n.js data-depends=jquery.slim></script>
+<script src=js/layer/layer.js></script>
+
+<script type="text/javascript">
+    "use strict";
+
+    function showContact(){
+        layer.alert("欢迎通过以下邮箱与我联系: <br/> 578154898@qq.com", {
+            title:false,
+            btn:false,
+            offset: '100px',
+            area: ['250px', '100px']
+        });
+    }
+
+    function wmsg( msg ) {
+        layer.msg( msg,  {
+            icon: 2,
+            anim:2
+        });
+    }
+
+    var ii;
+    function showLoad() {
+        ii = layer.load(4,{
+            shadeClose:true,
+            shade:[0.5,'#ccc']
+        });
+    }
+
+    function closeLoad() {
+        layer.close(ii);
+    }
+
+    if(typeof(webExtensionWallet) === "undefined"){
+        $('#WebExtensionWallet').show();
+    }else{
+        $('#WebExtensionWallet').hide();
+    }
+
+    var nebulas = require("nebulas"),
+        Neb = nebulas.Neb,
+        Utils = nebulas.Utils,
+        neb = new Neb();
+    localSave.setItem("lang","zh");
+
+    var apiList = [
+        { chainId: 1, name: "主网络", url: "https://mainnet.nebulas.io" },
+        { chainId: 1001, name: "测试网络", url: "https://testnet.nebulas.io" }
+    ];
+    var apiPrefix = (localSave.getItem("apiPrefix") || "").toLowerCase();
+    localSave.setItem("apiPrefix", apiPrefix = apiList[0].url);
+    localSave.setItem("chainId", apiList[0].chainId);
+
+
+    neb.setRequest(new nebulas.HttpRequest(localSave.getItem("apiPrefix") || "https://testnet.nebulas.io/"));
+
+    var Account = nebulas.Account;
+
+    //调用合约方法
+    function callnebContract(contract,callback) {
+        neb.api
+            .call({
+                from: "n1PSDw924XWy7exx8fp5XbkZawCxVQNb2BY",
+                to: "n1vLyrCV3N7Wqwt7dUjRdU6B8mAKD4bsiZh",
+                value: 0,
+                nonce: 2,
+                gasPrice: "1000000",
+                gasLimit: "200000",
+                contract: contract
+            })
+            .then(function (resp) {
+                if (typeof callback == "function"){
+                    callback(resp);
+                }
+                //$('#pross').hide();
+
+            })
+            .catch(function (err) {
+                //wmsg(JSON.stringify(err));
+                //$('#pross').hide();
+            });
+    }
+
+    var wishList = new Vue({
+        el : '#wishList',
+        data:{
+            items:[]
+        }
+    });
+
+    var accForm = new Vue({
+        el : '#accForm',
+        data:{
+            account:'',
+            items:[]
+        },
+        methods:{
+            getWishs:function () {
+                if( $.trim(this.account).length == 0 ){
+                    wmsg('请填写你的账号');
+                    return false;
+                }
+                if( !Account.isValidAddress(this.account) ){
+                    wmsg('您输入的地址无效，请检查是否输入错误！');
+                    return false;
+                }
+                var self = this;
+                showLoad();
+                var args = [
+                    this.account,
+                    0,
+                    100
+                ];
+                showLoad();
+                callnebContract({"function":"getMyWishs","args":"[\""+this.account+"\",\"0\",\"100\"]"},function (resp) {
+                    closeLoad();
+                    wishList.items = JSON.parse(resp.result);
+                    closeLoad();
+                });
+            }
+        }
+    });
+
+    function getUserAddress() {
+        window.postMessage(
+            {
+                target: 'contentscript',
+                method: 'getAccount'
+            },
+            '*'
+        )
+        window.addEventListener('message', function(e) {
+            if (e.data && e.data.data && e.data.data.account) {
+                //这就是当前钱包中的地址
+                $('#account').val( e.data.data.account );
+                accForm.account = e.data.data.account;
+                accForm.getWishs();
+            }
+        });
+    }
+
+    getUserAddress();
+</script>
+
+</body>
+</html>

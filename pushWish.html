@@ -1,0 +1,198 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>我要许愿-云许愿墙-疏桐科技</title>
+    <link rel="stylesheet" href="css/index.css" />
+    <link rel="stylesheet" href="css/layui/css/layui.css" />
+
+    <script type="text/javascript" src='js/jquery-1.7.2.min.js'></script>
+    <script type="text/javascript" src='js/vue.js'></script>
+</head>
+<body>
+
+<div  id="WebExtensionWallet"  class="layui-row" style="display: none">
+
+    <blockquote class="layui-elem-quote">
+        需要使用Chome浏览器，安装WebExtensionWallet插件 <a href="https://github.com/ChengOrangeJu/WebExtensionWallet" target="_blank">【去安装】</a>；安装完成后请刷新页面
+    </blockquote>
+
+</div>
+
+<div id='top'>
+    <div class="layui-tab layui-tab-brief" lay-filter="docDemoTabBrief">
+        <ul class="layui-tab-title layui-bg-gray">
+            <li><a href="index.html">许愿墙</a></li>
+            <li class="layui-this"><b>我要许愿</b></li>
+            <li><a href="myWish.html" >我的许愿</a></li>
+            <li><a href="javascript:;" onclick="showContact()" >联系我们</a></li>
+        </ul>
+    </div>
+</div>
+
+<div id='main'>
+    <hr class="layui-bg-black">
+    <div class="layui-container">
+        <form class="layui-form layui-form-pane" id="wishForm" onsubmit="return false">
+            <div class="layui-form-item">
+                <label class="layui-form-label">昵称</label>
+                <div class="layui-input-block">
+                    <input type="text" v-model="nick"  required  lay-verify="required" placeholder="请输入昵称" autocomplete="off" class="layui-input">
+                </div>
+            </div>
+            <div class="layui-form-item layui-form-text">
+                <label class="layui-form-label">心愿</label>
+                <div class="layui-input-block">
+                    <textarea required  lay-verify="required" v-model="desc" placeholder="请输入心愿,30个字以内" class="layui-textarea"></textarea>
+                </div>
+            </div>
+
+            <div class="layui-form-item">
+                <div class="layui-input-block">
+                    <button class="layui-btn" v-on:click="addWish">许愿</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="layui-row" style="position: fixed;bottom: 0;z-index: 999999;left:0px; width: 100%;">
+    <div class="layui-col-md12 layui-bg-gray" style="text-align: center; vertical-align:middle;line-height: 50px; height: 50px;">
+        © 2018 本网站由<a href="https://nebulas.io/cn/" style="color: #1E9FFF;" target="_blank">星云链</a>提供区块链服务.
+    </div>
+</div>
+
+
+<script src=js/layer/layer.js></script>
+<script src=js/nebPay.js></script>
+
+<script type="text/javascript">
+    "use strict";
+
+    function showContact(){
+        layer.alert("欢迎通过以下邮箱与我联系: <br/> 578154898@qq.com", {
+            title:false,
+            btn:false,
+            offset: '100px',
+            area: ['250px', '100px']
+        });
+    }
+
+    function wmsg( msg ) {
+        layer.msg( msg,  {
+            icon: 2,
+            anim:2
+        });
+    }
+
+
+    var ii;
+    function showLoad() {
+        ii = layer.msg('正在处理...', {
+            icon: 4,
+            time:1000000,
+            shadeClose:false,
+            shade:[0.5,'#ccc']
+        });
+    }
+
+    function closeLoad() {
+        layer.close(ii);
+    }
+
+    if(typeof(webExtensionWallet) === "undefined"){
+        $('#WebExtensionWallet').show();
+    }else{
+        $('#WebExtensionWallet').hide();
+    }
+
+    var NebPay = require("nebpay");     //https://github.com/nebulasio/nebPay
+    var nebPay = new NebPay();
+    var serialNumber
+    var callbackUrl = NebPay.config.mainnetUrl;   //如果合约在主网,则使用这个
+
+    var wishForm = new Vue({
+        el:"#wishForm",
+        data:{
+            nick:"",
+            desc:""
+        },
+        methods:{
+            addWish:function () {
+                if( $.trim(this.nick).length == 0 ){
+                   //wmsg('请填写昵称');
+                    return;
+                }
+
+                if( $.trim(this.nick).length > 5 ){
+                    wmsg('昵称最多5个字');
+                    return;
+                }
+
+                if( $.trim(this.desc).length == 0 ){
+                    //wmsg('请填写你的心愿');
+                    return;
+                }
+
+                if( $.trim(this.desc).length > 30 ){
+                    wmsg('心愿最多30个字')
+                    return;
+                }
+                var args = [
+                    this.nick,
+                    this.desc
+                ];
+                showLoad();
+                serialNumber = nebPay.call('n1vLyrCV3N7Wqwt7dUjRdU6B8mAKD4bsiZh', '0', 'addWish', JSON.stringify(args), {    //使用nebpay的call接口去调用合约,
+                    listener: cbPush,       //设置listener, 处理交易返回信息
+                    callback: callbackUrl
+                });
+
+                intervalQuery = setInterval(function () {
+                    funcIntervalQuery();
+                }, 10000);
+            }
+        }
+    });
+
+    var intervalQuery
+
+    function funcIntervalQuery() {
+        var options = {
+            callback: callbackUrl
+        }
+        nebPay.queryPayInfo(serialNumber,options)   //search transaction result from server (result upload to server by app)
+            .then(function (resp) {
+                console.log("tx result: " + resp)   //resp is a JSON string
+                var respObject = JSON.parse(resp)
+                if(respObject.code === 0){
+                    clearInterval(intervalQuery);
+                    closeLoad();
+                    wishForm.nick = '';
+                    wishForm.desc = '';
+                    layer.msg( '许愿成功',  {
+                        icon: 6
+                    });
+                }
+            })
+            .catch(function (err) {
+                console.log(err);
+            });
+    }
+
+    function cbPush(resp) {
+        console.log("response of push: " + JSON.stringify(resp))
+        var respString = JSON.stringify(resp);
+        if(respString.search("rejected by user") !== -1){
+            clearInterval(intervalQuery)
+            alert(respString)
+        }
+        // closeLoad();
+    }
+
+
+</script>
+
+</body>
+</html>
